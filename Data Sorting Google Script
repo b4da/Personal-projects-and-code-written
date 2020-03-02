@@ -1,0 +1,165 @@
+/*// convert all formulas to values in the active sheet
+function formulasToValuesActiveSheet() {
+  var sheet = SpreadsheetApp.getActiveSheet();
+  var range = sheet.getDataRange();
+  var valyuh = sheet.getRange(1,1,5,1);
+  
+  
+  Logger.log('%s', valyuh.getValues());
+  range.copyValuesToRange(sheet, 1, range.getLastColumn(), 1, range.getLastRow());
+  debugger;
+};*/
+
+function onOpen() {  
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var menuEntries = [ {name: "Search", functionName: "onSearch"} ];
+  ss.addMenu("Commands", menuEntries);      
+}
+
+
+function doGet() {}
+
+
+function onSearch()
+{
+  // initialize sheets 
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("schools"), sDS = SpreadsheetApp.openById("1da4kKVLHU7_ZoCfGUrS8MIrOgR3vAPPavrCvCXRxoR0"), stored_Data_Sheet = sDS.getSheetByName("Sheet1");
+  
+  
+   // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+  // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+  // column you want to filter in, and column you want to copy searched/filtered data to 
+    var column = 4, column2 = 1, start_Row = 68, gatherCol = 12; 
+  
+    // string value you are searching for
+    var searchString = "K-9";// searchString2 = "xx";
+  // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+   // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+  
+  //rangetoCopy will store data which we want to copy + gi gets index data from 'stored_Data_Sheet' to store, index data is needed to know which row is next for data to be pasted into */
+    var rangeToCopy2, rangeToCopy, gi = stored_Data_Sheet.getRange(2,1).getValues();
+  
+  
+  //convert to string data from spreadsheet to number
+    var gather_Index = parseInt(gi[0], 10), bkgndhex = sheet.getRange("A11").getBackground(); debugger;
+  
+  
+  //overall sheet last row, and columns last row
+    var sheetLastRow = sheet.getLastRow();
+    var last_Row = get_Last_Row(start_Row, column, sheetLastRow, sheet); debugger;
+  
+  
+  // fetch the values inside the desired column 
+    var numRows = last_Row - start_Row;
+    var columnValues = sheet.getRange(start_Row, column, numRows).getValues(), col_len = columnValues.length; 
+  
+    // // // // // // // // // // // // // // // // // // // // // // // // // // // // 
+   // // // // // // // Code that sifts through the columns// // // // // // // // // //  
+  // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+  
+  //start searching at the desired row (start_Row)
+    var searchResult = 0; debugger;
+   
+  while(true) {
+
+    
+     searchResult = columnValues.findIndex(searchResult, searchString, /*additional search item searchString2,*/ column, sheet, start_Row);    debugger;
+    
+
+            if (searchResult == -1) {
+     
+      break;
+      
+    }
+    
+              // copy desired data into 'gatherCol' (the column you wish to gather the data)
+    //  rangeToCopy = sheet.getRange(searchResult + start_Row, column);
+     // rangeToCopy.copyTo(sheet.getRange(gather_Index, gatherCol)); 
+    
+    //code for 2 column copy 
+    rangeToCopy = sheet.getRange(searchResult + start_Row, column2).getValue(); debugger;
+    rangeToCopy2 = sheet.getRange(searchResult + start_Row, column).getValue(); debugger;
+    
+    var res = rangeToCopy2.concat(" " + rangeToCopy); debugger;
+   // var res2 = rangeToCopy.concat(rangeToCopy2); debugger;
+     // sheet.getRange(gather_Index, gatherCol);
+   sheet.getRange(gather_Index, gatherCol).setValue(res);
+   
+        //change baackground color of row containing search criteria
+      sheet.getRange(searchResult + start_Row, column).setBackground("#e6b8af"); debugger;
+   
+    //same for other row */ */
+      sheet.getRange(searchResult + start_Row, column2).setBackground("#e6b8af"); debugger;
+
+       //increment to prevent it from searching the same row, and causing an infinite loop
+      searchResult = searchResult + 1;
+    
+       //increment gather_Index, to prevent it from copy pasting into the same row repeatedly
+      gather_Index = gather_Index + 1; 
+      
+
+    }
+
+  //update gather index value
+    stored_Data_Sheet.getRange(2,1).setValue(gather_Index.toString()); 
+
+}
+
+
+
+
+
+
+//find index prototype function
+Array.prototype.findIndex = function(i, searchString, /*additional search item -- can be removedsearchItem2,*/ column, sheet, start_Row) {
+
+  
+ var j, row;
+ j = i;
+  
+  
+  for(; j<this.length; j++) {
+
+    debugger;
+      
+    if (    ( this[j].toString().indexOf(searchString) !== -1 )   &&   /*additional search item -- can be removed(this[j].toString().indexOf(searchItem2) !== -1)   &&*/     ( sheet.getRange(j+start_Row, column).getBackground() !== "#e6b8af" )   ) {
+      return j;
+    }
+    
+  }
+  
+  
+    return -1;
+
+}  
+
+
+
+
+
+
+/* find last row of a column function */
+function get_Last_Row(row, col, sheetLastRow, sheet) {
+  
+  
+  
+  var range, row_index;
+
+  row_index = row;
+ 
+  
+  
+  for(; row_index<sheetLastRow; row_index++) {
+    
+    range = sheet.getRange(row_index, col); 
+    
+    if(    range.isBlank()   ==   true     ) {
+         return row_index; /*return last row*/
+    }
+    
+  }
+  
+  
+  return -1;
+  
+}
