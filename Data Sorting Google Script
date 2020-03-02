@@ -23,7 +23,7 @@ function doGet() {}
 function onSearch()
 {
   // initialize sheets 
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("schools"), sDS = SpreadsheetApp.openById("1da4kKVLHU7_ZoCfGUrS8MIrOgR3vAPPavrCvCXRxoR0"), stored_Data_Sheet = sDS.getSheetByName("Sheet1");
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("schools"), sDS = SpreadsheetApp.openById("insert ID here"), stored_Data_Sheet = sDS.getSheetByName("Sheet1");
   
   
    // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
