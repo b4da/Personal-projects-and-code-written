@@ -1,0 +1,272 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Control of a Quadcopter
+% by Adnan Bhaiji and Raghul Sai Subramanian
+
+% The following code is inspired by Teppo Luukkonen's paper 
+%... "Modelling of a quadcopter". 
+
+
+% August 2, 2018    
+
+
+
+%%%%%%%%%%%%%%%% PID Controller %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+input = 0; output = 0; setpoint = 0;
+error = 0; error_sum = 0;
+%tuning values
+ki = 0; kp = 0; kd = 0;
+
+%error terms, and tracking
+last_err = 0; err_sum=0;
+
+%time tracking
+last_time = 0;
+
+sample_time = 0.1; %0.1 seconds 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Declare all model variables
+
+% % Inertia matrix
+I_xx = 4.856*power(10, -3);
+I_yy = 4.856*power(10, -3);
+I_zz = 8.801*power(10, -3);
+
+I_col1 = [I_xx; 0; 0];
+I_colTwo = [0; I_yy; 0];
+I_colThree = [0; 0; I_zz];
+
+I = [I_col1 I_colTwo I_colThree];
+
+% % Physical constants
+
+k = 2.980*power(10, -6); % Lift constant
+b = 1.140*power(10, -7); % Drag constant
+l = 0.225; % distance between rotor and center of mass
+m = 0.468; % Mass
+G = m*[0; 0; 9.81];
+I_r = 3.375*power(10, -5); % Angular moment of a motor
+
+% % % Aerodynamical constants
+
+A_xx = 0.25;
+A_yy = 0.25;
+A_zz = 0.25;
+
+pause_time = 1;
+
+A = [A_xx 0    0;...
+     0    A_yy 0;...
+     0    0    A_zz];  
+
+ 
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+... Simulation Loop Initialization
+start_time = 1;
+end_time = 100;
+change = 1;
+dt = 0.1;
+times = start_time:change:end_time;
+
+% % Number of points in the simulation
+N = numel(times);
+
+% % Initial simulation state
+xi = [0; 0; 0];
+xi_dot = zeros(3, 1);
+eta = zeros(3, 1);
+
+eta_dot = zeros(3,1);
+thrust = zeros(3,1);
+eulerLagrangeData = zeros(100,9);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+... Simulation 'For'Loop 
+
+for t = times
+    % Take input from our controller
+    filename = 'Pitch.xlsx';
+    omegaData = xlsread(filename);   
+    omega = zeros(4,1);
+    omega(1) = omegaData(t,1);
+    omega(2) = omegaData(t,2);
+    omega(3) = omegaData(t,3);
+    omega(4) = omegaData(t,4);
+    omega_sq = omega.^2;
+    
+    %temporary command window output
+   
+    disp('eta');
+    disp(eta);
+    
+    disp('tau');
+    tau = torque(omega_sq, l, b, k);
+    disp(tau);
+    
+    disp('thrust');
+    disp(thrust);
+    
+    disp('xi');
+    disp(xi);
+    
+    disp('xi_dot');
+    disp(xi_dot);
+   
+    nu = RPYtoAngularVel(eta(1), eta(2), eta(3))*eta_dot;
+    
+    % Compute linear and angular accelerations
+    a = acceleration(omega_sq, eta, xi_dot, m, G, k, A);
+    eulerLagrangeData(t,1) = a(1);
+    eulerLagrangeData(t,2) = a(2);
+    eulerLagrangeData(t,3) = a(3);
+    
+    nu_dot = angular_acceleration(omega_sq, omega, nu, I, I_r, l, b, k);
+    eulerLagrangeData(t,4) = nu_dot(1);
+    eulerLagrangeData(t,5) = nu_dot(2);
+    eulerLagrangeData(t,6) = nu_dot(3);
+    
+    nu = nu + dt*nu_dot;
+    eta_dot = AngularVelToRPY(eta(1), eta(2), eta(3))*nu;    
+    eta = eta + dt*eta_dot*(57.2957795131);
+    eulerLagrangeData(t,7) = eta_dot(1);
+    eulerLagrangeData(t,8) = eta_dot(2);
+    eulerLagrangeData(t,9) = eta_dot(3);
+    
+    
+    xi_dot = xi_dot + dt*a;
+    
+    xi_old = xi;
+    xi = xi + dt*xi_dot;
+    
+    XiDif = xi-xi_old; 
+    
+    %  For simulation
+    R = RotateBodyToInertial(eta(1), eta(2), eta(3));
+    thrust = R*motorForce(omega, k); 
+       
+    % Plot figures
+    figure(1);
+    ax1 = subplot(2,1,1);
+    quiver3(zeros(3,1),zeros(3,1),zeros(3,1),[1;0;0],[0;1;0],[0;0;1],...
+       'Color',[0,0,0]); hold on;
+    quiver3(zeros(3,1),zeros(3,1),zeros(3,1), R(:,1), R(:,2), R(:, 3),...
+        'Color', [1,0,0]); hold on;
+    
+    quiver3(0, 0, 0, thrust(1), thrust(2), thrust(3), 'Color',...
+        [0.5843, 0.8157, 0.9882]); hold on;
+
+    
+    pause(pause_time);
+    
+    ax2 = subplot(2,1,2);
+    quiver3(xi_old(1), xi_old(2), xi_old(3), XiDif(1), XiDif(2),...
+    XiDif(3)); hold on;
+    cla(ax1);
+end
+
+outFileName = 'eulerLagrangeData';
+xlswrite(outFileName, eulerLagrangeData);
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Rotation matrix from body frame to inertial frame (using ***d() for
+% trigonometric ratios so that arguments of degrees can be used)
+function R = RotateBodyToInertial(phi, theta, psi)
+    R_col1 = [cosd(psi)*cosd(theta); sind(psi)*cosd(theta); -sind(theta)];
+    R_colTwo = [cosd(psi)*sind(theta)*sind(phi) - sind(psi)*cosd(phi);
+        sind(psi)*sind(theta)*sind(phi) + cosd(psi)*cosd(phi);
+        cosd(theta)*sind(phi)];
+    R_colThree = [cosd(psi)*sind(theta)*cosd(phi) + sind(psi)*sind(phi); 
+        sind(psi)*sind(theta)*cosd(phi) - cosd(psi)*sind(phi); 
+        cosd(theta)*cosd(phi)];
+    R = [R_col1, R_colTwo, R_colThree];
+end
+
+% Rotation matrix converting from body frame angular velocities to
+% roll, pitch and yaw angular velocities
+function WInv = AngularVelToRPY(phi, theta, ~)
+    WInv_C1 = [1; 0; 0];
+    WInv_C2 = [sind(phi)*tand(theta); cosd(phi); sind(phi)/cosd(theta)];
+    WInv_C3 = [cosd(phi)*tand(theta); -sind(phi); cosd(phi)/cosd(theta)];
+    WInv = [WInv_C1, WInv_C2, WInv_C3];
+end
+
+% Rotation matrix converting roll, pitch, yaw angular velocities to body
+... frame angular velocities
+function W = RPYtoAngularVel(phi, theta, ~)
+    W_col1 = [1; 0; 0];
+    W_colTwo = [0; cosd(phi); -sind(phi)];
+    W_colThree = [-sind(theta); cosd(theta)*sind(phi); cosd(theta)*...
+        cosd(phi)];
+    W = [W_col1, W_colTwo, W_colThree]; 
+end
+
+function thrust = motorForce(inputs, k)
+    thrust = [0; 0; k*sum(inputs)];
+end 
+
+function tau = torque(inputs_sq, l, b, k)
+    tau = [ l*k*(inputs_sq(1) - inputs_sq(3));...
+            l*k*(inputs_sq(2) - inputs_sq(4));...
+            b*(inputs_sq(1) - inputs_sq(2) + inputs_sq(3) - inputs_sq(4))];
+end
+
+function nu_dot = angular_acceleration(inputs_sq, inputs, nu, I, I_r, l, b, k)
+    torque_body = torque(inputs_sq, l, b, k);
+    torque_phi = torque_body(1);
+    torque_theta = torque_body(2);
+    torque_psi = torque_body(3);
+    I_xx = I(1, 1);
+    I_yy = I(2, 2);
+    I_zz = I(3, 3);
+    p = nu(1);
+    q = nu(2);
+    r = nu(3);
+    omega_gamma = inputs(1) - inputs(2) + inputs(3) - inputs(4);
+    nu_dot = -[(I_yy - I_zz)*q*r/I_xx;...
+        (I_zz - I_xx)*p*r/I_yy;...
+        (I_xx - I_yy)*p*q/I_zz] - I_r*[q/I_xx; -p/I_yy; 0]*omega_gamma + ...
+        [torque_phi/I_xx;...
+        torque_theta/I_yy;...  
+        torque_psi/I_zz]; % Angular accelerations in the body-fixed frame
+
+
+end
+
+function xi_doubleDot = acceleration(inputs_sq, eta, xi_dot, m, G, k, A)
+    
+    R = RotateBodyToInertial(eta(1), eta(2), eta(3));
+    thrust = R*motorForce(inputs_sq, k);    
+    xi_doubleDot = (1/m)*(-G + norm(thrust)*R(:, 3) - A*xi_dot);
+
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% PID Controller %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+function [last_t, test] = pid_compute(samp_t, t, last_t, kp, ki, kd, SetPoint, input)
+    
+curr_t = t * 0.1; %since for loop is incrementing by 1, and we 
+                  %defined each increment of one as 0.1 seconds
+    
+    if (current_time - last_t_internal = samp_t)
+     
+        %perform PID computations
+        error = SetPoint - input;
+        
+        test = test + 1;
+        last_t = Curr_t;
+        
+    end
+    
+end
+        
