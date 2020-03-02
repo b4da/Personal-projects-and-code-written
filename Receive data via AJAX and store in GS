@@ -1,0 +1,337 @@
+// original from: http://mashe.hawksey.info/2014/07/google-sheets-as-a-database-insert-with-apps-script-using-postget-methods-with-ajax-example/
+// original gist: https://gist.github.com/willpatera/ee41ae374d3c9839c2d6 
+function doGet(e){
+  return handleResponse(e); 
+}
+
+
+
+  
+//  Enter sheet name where data is to be written below
+  var SHEET_NAME = "Sheet1";
+
+  var SCRIPT_PROP = PropertiesService.getScriptProperties(); // new property service
+
+function handleResponse(e) {
+  // shortly after my original solution Google announced the LockService[1]
+  // this prevents concurrent access overwritting data
+  // [1] http://googleappsdeveloper.blogspot.co.uk/2011/10/concurrency-and-google-apps-script.html
+  // we want a public lock, one that locks for all invocations
+  var lock = LockService.getPublicLock(), PDFId, email_Address;
+  lock.waitLock(30000);  // wait 30 seconds before conceding defeat.
+  
+  try {
+    // next set where we write the data - you could write to multiple/alternate destinations
+    var doc = SpreadsheetApp.openById(SCRIPT_PROP.getProperty("key"));   
+    
+    Logger.log(SCRIPT_PROP.getProperty('key'));
+    
+    var sheet = doc.getSheetByName(SHEET_NAME);
+    
+   // we'll assume header is in row 1 but you can override with header_row in GET/POST data
+   // var headRow = e.parameter.header_row || 1;
+   // var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  
+    
+    //section one input values
+    first_input_vals = {"timestamp": "Timestamp", "service1op1": "tdwwcs_service_op1", "service1opt2": "tdwwcs_service_opt2", "service2op1": "ctss_service_op1","service2op2": "ctss_service_op2", "service3op1": "rzifs_service_op1", "pay_option": "payment_options", "location" : "property_loc_input", 
+    "property_size" : "prop_size_ranges", "greaterthan8000_prop_size" : "prop_size_other"};
+  
+    //section 2 input values
+    second_input_vals = {"email": "email_addressVerify", "phone_num": "phone_number", "fname": "contract_fn",  "lname": "contract_ln",  
+                         "address": "contract_address", "questionaire": "prop_info", "hdyhau_internet": "hdyhau_internet",
+                         "hdyhau_fm": "hdyhau_farmers_market", "hdyhau_twe": "hdyhau_talk_workshop_event", "hdyhau_other": "hdyhau_other"};
+    
+ 
+    var sheetLastRow = sheet.getLastRow();
+    var nextRow_temp = get_Last_Row(2,1, sheetLastRow + 2, sheet), nextRow = nextRow_temp; // get next row to put stuff in (the last row of entire sheet)
+    var row = [], currentDate = new Date();
+    
+    
+    //fill in section one in spreadsheet
+    //timestamp
+    sheet.getRange(nextRow, 1).setValue(currentDate);
+    
+    if(e.parameter[ first_input_vals["service1op1"] ] ==  undefined){
+          row.push(" ");
+  }
+    else{
+          row["service1op1"] = e.parameter[ first_input_vals["service1op1"] ];
+  }
+    
+    if(e.parameter[ first_input_vals["service1op2"] ] ==  undefined){
+          row.push(" ");
+  }
+    else{
+          row["service1op2"] = e.parameter[ first_input_vals["service1op2"] ];
+  }
+    
+    
+    if(e.parameter[ first_input_vals["service2"] ] ==  undefined){
+          row.push(" ");
+  }
+    else{
+          row.push(  e.parameter[ first_input_vals["service2"] ]    );
+  }
+    
+  
+    if( e.parameter[ first_input_vals["service3"] ] == undefined ) {
+          row.push(" ");
+  }
+    else{
+          row.push(e.parameter[ first_input_vals["service3"] ]    );
+  }
+  //fill the cell with the service values
+    sheet.getRange(nextRow, 2).setValue(row[0] + "\n" + row[1] + "\n" + row[2]);
+    
+    
+  //property size input    
+    if( e.parameter[ first_input_vals["property_size"] ] == "Greater than 8000 square ft" ) {
+      row.push( e.parameter[ first_input_vals["greaterthan8000_prop_size"] ] );
+      
+      //fill the cell with the prop size value
+      sheet.getRange(nextRow, 3).setValue( "the property size is greater than 8000 square ft, and is:" + "\n" + row[3] + " square feet" );
+    }
+    else{
+      row.push( e.parameter[ first_input_vals["property_size"] ] );
+      
+      //fill the cell with the prop size range value
+      sheet.getRange(nextRow, 3).setValue( row[3] );
+     
+    }
+    
+    
+    //payment service package 
+    row.push( e.parameter[ first_input_vals["pay_option"] ] );
+    //fill the cell with the payment option value
+    sheet.getRange(nextRow, 4).setValue( row[4] );
+    
+    
+    //property location   
+    row.push( e.parameter[ first_input_vals["location"] ] );
+    //fill the cell with the property location value
+    sheet.getRange(nextRow, 5).setValue( row[5] );
+    
+    
+    
+  //second section input vals
+  //first name
+    row.push( e.parameter[ second_input_vals["fname"] ] );
+  //fill the cell with the payment option value
+    sheet.getRange(nextRow, 7).setValue( row[6] );  
+    
+  // last name       
+    row.push( e.parameter[ second_input_vals["lname"] ] );
+  //fill the cell with the payment option value
+    sheet.getRange(nextRow, 8).setValue( row[7] );  
+    
+  //address
+    row.push( e.parameter[ second_input_vals["address"] ] );
+  //fill the cell with the payment option value
+    sheet.getRange(nextRow, 9).setValue( row[8] );  
+   
+  // email    
+    row.push( e.parameter[ second_input_vals["email"] ] );
+  //fill the cell with the payment option value
+    sheet.getRange(nextRow, 10).setValue( row[9] );  
+ 
+  // phone number    
+    row.push( e.parameter[ second_input_vals["phone_num"] ] );
+  //fill the cell with the payment option value
+    sheet.getRange(nextRow, 11).setValue( row[10] );  
+    
+  // property info questionaire    
+    row.push( e.parameter[ second_input_vals["questionaire"] ] );
+  //fill the cell with the payment option value
+    sheet.getRange(nextRow, 12).setValue( row[11] );  
+    
+    
+    
+    // how did they hear about living soil solutions
+    if(e.parameter[ second_input_vals["hdyhau_internet"] ] ==  undefined){
+          row.push(" ");
+  }
+    else{
+          row.push(  e.parameter[ second_input_vals["hdyhau_internet"] ]    );
+  }
+
+    
+    // how did they hear about living soil solutions
+    if(e.parameter[ second_input_vals["hdyhau_fm"] ] ==  undefined){
+          row.push(" ");
+  }
+    else{
+          row.push(  e.parameter[ second_input_vals["hdyhau_fm"] ]    );
+  }
+
+    
+    // how did they hear about living soil solutions
+    if(e.parameter[ second_input_vals["hdyhau_twe"] ] ==  undefined){
+          row.push(" ");
+  }
+    else{
+          row.push(  e.parameter[ second_input_vals["hdyhau_twe"] ]    );
+  }
+
+    
+    // how did they hear about living soil solutions
+    if(e.parameter[ second_input_vals["hdyhau_other"] ] ==  undefined){
+          row.push(" ");
+  }
+    else{
+          row.push(  e.parameter[ second_input_vals["hdyhau_other"] ]    );
+  }
+//fill sheet with questionaire values
+  sheet.getRange(nextRow, 13).setValue( row[12] + "\n" + row[13] + "\n" + row[14] + "\n" + row[15] );
+      
+    var PDFId = createPDF(row, currentDate); debugger;
+    
+    var email_Address = row[9]; debugger;
+    send_Email(email_Address, PDFId); debugger;
+    
+    
+    
+    // return json success results
+    return ContentService
+          .createTextOutput(JSON.stringify({"result":"success", "row": nextRow}))
+          .setMimeType(ContentService.MimeType.JSON);
+  } catch(e){
+    // if error return this
+    return ContentService
+          .createTextOutput(JSON.stringify({"result":"error", "error": e}))
+          .setMimeType(ContentService.MimeType.JSON);
+  } finally { //release lock
+    lock.releaseLock();
+  }
+  
+}
+
+
+
+
+
+/* find last row of a column function */
+function get_Last_Row(row, col, sheetLastRow, sheet) {
+  
+  
+  
+  var range, row_index;
+
+  row_index = row;
+  
+  sheetLastRow = sheetLastRow + 1;
+  
+  
+  for(; row_index<sheetLastRow; row_index++) {
+    
+    range = sheet.getRange(row_index, col); 
+    
+    if(    range.isBlank()   ==   true     ) {
+         return row_index; /*return last row*/ debugger;
+    }
+    
+  }
+  
+  
+  return -1;
+  
+}
+
+
+
+// create PDF from the AJAX received  
+function createPDF(rowVals, currentDate) {
+  
+  
+ var TEMPLATE_ID = '12B_69uaThGz9TM2UZo_QkSsbSiJXhI0Aaw2fEeuiBgc', PDF_NAME = 'Service Contract',
+     //variables to store service values
+     serviceVals = "",
+     i = 0;
+  
+  //create a copy of the contract template
+ var file_Copy = DriveApp.getFileById(TEMPLATE_ID).makeCopy(),
+     file_Copy_Id = file_Copy.getId(),
+     
+     file_Copy_Content = DocumentApp.openById(file_Copy_Id),
+     file_Copy_Content_Body = file_Copy_Content.getBody();
+    
+  //paste the form response values into the copy of the contract template
+  //set the date values
+    file_Copy_Content_Body.replaceText('%' + 'day' + '%', currentDate.getDate()); 
+    file_Copy_Content_Body.replaceText('%' + 'month' + '%', currentDate.getMonth() + 1); 
+    file_Copy_Content_Body.replaceText('%' + 'year' + '%', currentDate.getFullYear()); 
+
+  
+  // insert first name value
+    file_Copy_Content_Body.replaceText('%' + 'first_name' + '%', rowVals[6]); 
+  // insert last name value
+    file_Copy_Content_Body.replaceText('%' + 'last_name' + '%', rowVals[7]);   
+  // insert address value
+    file_Copy_Content_Body.replaceText('%' + 'address' + '%', rowVals[8]);   
+
+  
+  //insert service vals
+  for(i=0; i<3; i++) {
+    if(rowVals[i] != " "){
+      if( i == 2){
+      serviceVals += rowVals[i];
+        
+      }
+      else{
+        serviceVals += rowVals[i] + "\n";
+        
+      }
+      
+    }
+    
+  }
+      file_Copy_Content_Body.replaceText('%' + 'lls_services' + '%', serviceVals);   
+                                       
+  
+  //save and close the copy made of the contract template
+  file_Copy_Content.saveAndClose();
+  
+  //create a pdf from the copy made of the contract template
+ var parentFolder = DriveApp.getFolderById('1eOJy6vcmGslgB8NPc5BwmIintsQ5trq0');
+ var newFile = parentFolder.createFile(file_Copy.getAs('application/pdf')), newFileId; 
+  
+  newFile.setName(PDF_NAME);
+  newFileId = newFile.getId();
+  
+  // delete the copy made of the the contract template
+  file_Copy.setTrashed(true);
+  
+  return newFileId; 
+}
+
+
+
+// get the file by its ID and send it to desired email address as attachment
+function send_Email (email_Address, fileID) {
+  
+  fileToSend = DriveApp.getFileById(fileID);
+  
+  var templ = HtmlService.createTemplateFromFile('contract_email_body');
+  var message = templ.evaluate().getContent();
+  
+    if (MailApp.getRemainingDailyQuota() > 0) {
+
+      MailApp.sendEmail({
+      to:  email_Address,
+      subject:'Living Soil Solutions Service Contract',
+      htmlBody: message,
+      attachments: fileToSend}   );    
+}
+
+  fileToSend.setTrashed(true);
+  
+}
+
+
+
+
+
+function setup() {
+    var doc = SpreadsheetApp.getActiveSpreadsheet();
+    SCRIPT_PROP.setProperty("key", doc.getId());
+}
