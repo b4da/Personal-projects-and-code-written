@@ -1,0 +1,271 @@
+// Reference: http://www.jessespevack.com/blog/2016/2/9/turn-a-google-form-response-into-a-calendar-event
+// Modifications by: Adnan Bhaiji
+
+
+
+var moment = Moment.load();
+
+var GLOBAL = {
+  
+  
+  form_id : "insert form ID here",
+  calendar_id : "insert calendar ID here",
+  
+  
+  
+  form_map : {
+    
+    schoolName : "School Name?",
+    
+    schoolAddress : "School Address?",
+    
+    phone : "Best phone number to contact?",
+        
+    emailAddress : "Email Address?",
+    
+    program : "Which Program are you registering for?",
+    
+    grLevel : "Grade Level(s) of Student Group?",
+    
+    st_t : "Book the start time:",
+    
+    end_t : "Book the end time:",
+    
+    date : "Book the date:",
+    
+},
+
+
+
+}
+
+  
+
+
+function on_form_submit() {
+  //example code for setting confirmation message
+ var form = FormApp.openById(GLOBAL.form_id);  
+ form.setConfirmationMessage('Thank you for booking!');
+   
+ //get latest submission
+ var form_info = get_form_info(),
+     
+ latest_submission = form_info.latest_submission;
+  
+ 
+ // create calendar event from latest form submission 
+ var event = create_calendar_event(latest_submission);
+  
+ //send email to latest submitter
+ send_email(latest_submission);
+  
+  Logger.log(latest_submission);
+  
+}
+
+
+
+
+/* sending email function */
+function send_email (latest_submission) {
+  
+  GmailApp.sendEmail('thegreatadnan@Hotmail.ca', 'hello adnan', 'the time is');
+  
+}
+
+
+/* Logger.log(values);*/
+
+function get_form_info () {
+  
+  
+ var form = FormApp.openById(GLOBAL.form_id),
+     
+     
+     
+ //this method gets all responses and stores in array 
+ responses = form.getResponses(), 
+ 
+     
+     
+ //length of response array 
+ length = responses.length,
+ 
+     
+     
+ //find index of last response, arrays start at zero, so this will be length minus 1
+ last_response = responses[length -1],
+   
+ item_responses = last_response.getItemResponses(),
+   
+     
+     
+ //empty object to store last reponse, which will then be placed as a calendar event
+     
+ event_object = {},
+ timedate_index_array = {};
+  
+  
+  
+ //loop through each item in the response item array 
+  for (var i = 0, x = item_responses.length; i<x; i++) {
+    
+    
+    //get the title of form item for current loop iteration 
+    var current_item = item_responses[i].getItem().getTitle(),
+        
+        current_response = item_responses[i].getResponse();
+    
+     
+    //each iteration will store the latest submissions responses into the event_object array
+    switch (current_item) {
+        
+      case GLOBAL.form_map.schoolName:
+        event_object.schoolName = current_response;
+        break;
+      case GLOBAL.form_map.schoolAddress:
+        event_object.schoolAddress = current_response;
+        break;
+      case GLOBAL.form_map.phone:
+        event_object.phone = current_response;
+        break;
+      case GLOBAL.form_map.emailAddress:
+        event_object.emailAddress = current_response;
+        break;
+      case GLOBAL.form_map.program:
+        event_object.program = current_response;
+        break; 
+        
+        //these cases also store indices of date and time info 
+      case GLOBAL.form_map.end_t:
+        timedate_index_array.event_end_time = i;
+        event_object.end_t = current_response;
+        break;
+               
+      case GLOBAL.form_map.st_t:
+        event_object.st_t = current_response;
+        timedate_index_array.start_time = i;
+        break;
+                
+      case GLOBAL.form_map.date:
+        event_object.date = current_response;
+        timedate_index_array.event_date = i;
+        break;
+        
+    }
+    
+    
+  }
+  
+ 
+  return {
+    
+    timedate_index_array: timedate_index_array,
+    
+    latest_submission: event_object,
+            
+  };
+
+  
+}
+
+
+
+
+function create_calendar_event(event_object) {
+  
+  
+  //get calendar id
+  var calendar = CalendarApp.getCalendarById(GLOBAL.calendar_id);
+
+  //store variables to be placed into calendar event 
+  var schoolName = event_object.schoolName,
+      
+      schoolAddress = event_object.schoolAddress,
+      
+      space = " ",
+      
+   // school_name_and_address = schoolName.concat(space, schoolAddress),
+      
+      st_t = event_object.st_t,
+      
+      end_t = event_object.end_t,
+      
+      date = event_object.date,
+      
+      start_time = date.concat(space, st_t),
+      
+      end_time = date.concat(space, end_t);
+  
+  
+  // convert form time formatting, to google calendar func's formatting
+  
+  var calnStartTime = moment(start_time).toDate(),
+      
+      calnEndTime = moment(end_time).toDate();
+        
+      
+      
+  
+  //create event
+  var event = calendar.createEvent(
+    
+    
+    schoolName,
+                                   
+    new Date(calnStartTime),
+                                   
+    new Date(calnEndTime),
+                                   
+    {location: schoolAddress}
+  
+  
+  );
+  
+  
+  return event;
+  Logger.log('Event ID: ' + event.getId());
+
+  
+}
+
+
+
+
+//function to check if duplicate submission, and if duplicate delete submission, and display error message 
+
+
+
+
+/*/function to check if duplicate entry, and if duplicate delete entry. display error message 
+function duplicate_ () {
+
+  
+  
+  var submissions = form.getResponses(),
+           
+      latest_submission = submissions[total_n0_submissions - 1],
+      
+      //get all of the items from latest submission    
+      items_in_latest_submission = latest_submission.getItemResponses(),
+      
+      timedate_index_array = get_timeanddate_indices(),
+      
+      curr_iteration_items = submissions[1].getItems.g;
+    
+     
+  
+  for (var i = 0, x = submissions.length; i<x; i++) {
+    
+    var curr_iteration_items = submissions[i].getItemResponses();
+    
+    if (curr_iteration_items[
+    
+      
+      
+
+      
+      
+  
+}
+*/
