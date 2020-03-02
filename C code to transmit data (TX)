@@ -1,0 +1,22 @@
+ void setup() {
+  // put your setup code here, to run once:
+
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  while(!Serial);
+  Serial.begin(9600);
+
+  radio.begin();
+ 
+  radio.setPALevel(RF24_PA_MAX);
+  radio.setChannel(0x76);
+  radio.openWritingPipe(0xF0F0F0F0E1LL);
+  const uint64_t pipe = (0xE8E8F0F0E1LL);
+  radio.openReadingPipe(1, pipe);
+
+  radio.enableDynamicPayloads();
+  radio.powerUp();
+
+}
